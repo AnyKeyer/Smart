@@ -1,0 +1,138 @@
+<template>
+    <div class="navigation-container w-full max-w-4xl mx-auto mt-4 flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
+      <!-- Navigation buttons -->
+      <div class="flex space-x-2 justify-center md:justify-start">
+        <button 
+          @click="handlePrevious"
+          class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="isFirstCard"
+        >
+          Previous
+        </button>
+        
+        <span class="flex items-center px-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg">
+          {{ currentIndex + 1 }} / {{ totalCards }}
+        </span>
+        
+        <button 
+          @click="handleNext"
+          class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="isLastCard"
+        >
+          Next
+        </button>
+      </div>
+      
+      <!-- Action buttons -->
+      <div class="flex space-x-2 justify-center md:justify-end flex-grow">
+        <button 
+          @click="handleAddWallet"
+          class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+        >
+          Add
+        </button>
+        
+        <button 
+          @click="handleSkipWallet"
+          class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-white rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500"
+        >
+          Skip
+        </button>
+        
+        <button 
+          @click="handleFinishAnalysis"
+          class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+        >
+          Finish Analysis
+        </button>
+      </div>
+    </div>
+  </template>
+  
+  <script>
+  import { computed } from 'vue';
+  import { useRouter } from 'vue-router';
+  import { useDataStore } from '@/stores/dataStore';
+  import { useResultsStore } from '@/stores/resultsStore';
+  
+  export default {
+    name: 'CardNavigation',
+    props: {
+      currentIndex: {
+        type: Number,
+        required: true
+      },
+      onPrevious: {
+        type: Function,
+        default: () => {}
+      },
+      onNext: {
+        type: Function,
+        default: () => {}
+      }
+    },
+    setup(props, { emit }) {
+      const router = useRouter();
+      const dataStore = useDataStore();
+      const resultsStore = useResultsStore();
+      
+      const totalCards = computed(() => dataStore.filteredData.length);
+      
+      const isFirstCard = computed(() => props.currentIndex === 0);
+      const isLastCard = computed(() => props.currentIndex === totalCards.value - 1);
+      
+      const currentWallet = computed(() => {
+        const currentCard = dataStore.filteredData[props.currentIndex];
+        return currentCard ? currentCard.Wallet : null;
+      });
+      
+      const handlePrevious = () => {
+        if (!isFirstCard.value) {
+          props.onPrevious();
+        }
+      };
+      
+      const handleNext = () => {
+        if (!isLastCard.value) {
+          props.onNext();
+        }
+      };
+      
+      const handleAddWallet = () => {
+        if (currentWallet.value) {
+          resultsStore.addWallet(currentWallet.value);
+        }
+        
+        if (!isLastCard.value) {
+          props.onNext();
+        } else {
+          router.push('/results');
+        }
+      };
+      
+      const handleSkipWallet = () => {
+        if (!isLastCard.value) {
+          props.onNext();
+        } else {
+          router.push('/results');
+        }
+      };
+      
+      const handleFinishAnalysis = () => {
+        router.push('/results');
+      };
+      
+      return {
+        totalCards,
+        isFirstCard,
+        isLastCard,
+        currentWallet,
+        handlePrevious,
+        handleNext,
+        handleAddWallet,
+        handleSkipWallet,
+        handleFinishAnalysis
+      };
+    }
+  };
+  </script>
