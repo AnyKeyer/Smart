@@ -199,7 +199,8 @@
   import { computed } from 'vue';
   import { useDataStore } from '@/stores/dataStore';
   import { useResultsStore } from '@/stores/resultsStore';
-  
+  import { watch } from 'vue';
+
   export default {
     name: 'CardViewer',
     props: {
@@ -213,8 +214,13 @@
       const resultsStore = useResultsStore();
       
       const currentCard = computed(() => {
-        return dataStore.filteredData[props.cardIndex] || null;
-      });
+  return dataStore.filteredData[props.cardIndex] || null;
+});
+
+watch(() => dataStore.filteredData, (newData) => {
+  console.log('CardViewer: отфильтрованные данные изменились:', newData.length, 'элементов');
+  console.log('CardViewer: текущий индекс:', props.cardIndex);
+}, { deep: true });
       
       const calculations = computed(() => {
         if (!currentCard.value) return { 

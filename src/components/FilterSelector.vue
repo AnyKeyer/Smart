@@ -1,259 +1,251 @@
 <template>
-    <div class="mb-8">
-      <h2 class="text-xl font-semibold mb-4">Фильтрация данных</h2>
-      
-      <div v-if="!dataStore.hasItems" class="text-center py-6">
-        <p class="text-gray-500 dark:text-gray-400">Нет данных для фильтрации. Пожалуйста, загрузите файл.</p>
-        <router-link to="/" class="btn btn-primary mt-4">Загрузить файл</router-link>
+    <div class="space-y-4">
+      <!-- Отображение активных фильтров -->
+      <div v-if="activeFilters.length > 0" class="mb-4">
+        <h3 class="text-lg font-medium mb-2 dark:text-white">Active Filters</h3>
+        <div class="flex flex-wrap gap-2">
+          <div 
+            v-for="filter in activeFilters" 
+            :key="filter.column"
+            class="inline-flex items-center bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 px-3 py-1 rounded-full"
+          >
+            <span>{{ filter.column }} {{ getOperatorSymbol(filter.operator) }} {{ filter.value }}</span>
+            <button 
+              class="ml-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              @click="removeFilter(filter.column)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <button 
+            v-if="activeFilters.length > 0"
+            class="inline-flex items-center text-sm text-red-600 dark:text-red-400 px-3 py-1 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full"
+            @click="clearAllFilters"
+          >
+            Clear All Filters
+          </button>
+        </div>
       </div>
       
-      <div v-else>
-        <!-- Активные фильтры -->
-        <div v-if="hasActiveFilters" class="mb-6">
-          <h3 class="text-lg font-medium mb-2">Активные фильтры</h3>
-          <div class="flex flex-wrap gap-2">
-            <div 
-              v-for="(filter, column) in filterStore.filters" 
-              :key="column"
-              class="inline-flex items-center bg-primary-light/10 dark:bg-primary-dark/20 text-primary-light dark:text-primary-dark px-3 py-1 rounded-full"
+      <!-- Форма для создания нового фильтра -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-medium mb-3 dark:text-white">Add Filter</h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Выбор колонки -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Column</label>
+            <select 
+              v-model="selectedColumn" 
+              class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             >
-              <span>{{ column }} {{ getOperatorText(filter.operator) }} {{ filter.value }}</span>
-              <button 
-                class="ml-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                @click="removeFilter(column)"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <button 
-              class="inline-flex items-center text-sm text-red-600 dark:text-red-400 px-3 py-1 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full"
-              @click="clearFilters"
+              <option value="">Select column</option>
+              <option v-for="column in columns" :key="column.name" :value="column.name">
+                {{ column.name }}
+              </option>
+            </select>
+          </div>
+          
+          <!-- Выбор оператора -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Operator</label>
+            <select 
+              v-model="selectedOperator"
+              class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              :disabled="!selectedColumn"
             >
-              Очистить все фильтры
-            </button>
+              <option value="">Select operator</option>
+              <option v-for="op in availableOperators" :key="op.value" :value="op.value">
+                {{ op.label }}
+              </option>
+            </select>
+          </div>
+          
+          <!-- Ввод значения -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Value</label>
+            <input 
+              v-model="filterValue" 
+              type="text" 
+              class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              :disabled="!selectedOperator"
+              placeholder="Enter value"
+            />
           </div>
         </div>
         
-        <!-- Создание нового фильтра -->
-        <div class="bg-white dark:bg-surface-dark rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
-          <h3 class="text-lg font-medium mb-3">Добавить фильтр</h3>
-          
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Выбор столбца -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Столбец</label>
-              <select v-model="selectedColumn" class="input">
-                <option value="">Выберите столбец</option>
-                <option v-for="column in availableColumns" :key="column" :value="column">
-                  {{ column }}
-                </option>
-              </select>
-            </div>
-            
-            <!-- Выбор оператора -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Оператор</label>
-              <select v-model="selectedOperator" class="input">
-                <option value="">Выберите оператор</option>
-                <option v-for="(text, op) in getOperators(selectedColumn)" :key="op" :value="op">
-                  {{ text }}
-                </option>
-              </select>
-            </div>
-            
-            <!-- Ввод значения -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Значение</label>
-              <input type="text" v-model="filterValue" class="input" placeholder="Введите значение" />
-            </div>
-          </div>
-          
-          <div class="mt-4 flex justify-end">
-            <button 
-              class="btn btn-primary"
-              @click="addFilter"
-              :disabled="!canAddFilter"
-            >
-              Добавить фильтр
-            </button>
-          </div>
-        </div>
-        
-        <!-- Статистика -->
-        <div class="mt-6 bg-white dark:bg-surface-dark rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
-          <div class="flex justify-between items-center">
-            <div>
-              <p class="text-sm text-gray-600 dark:text-gray-400">
-                Отображено {{ filteredCount }} из {{ dataStore.totalItems }} записей
-              </p>
-            </div>
-            
-            <div class="flex space-x-3">
-              <button 
-                class="btn btn-secondary"
-                @click="skipFilters"
-              >
-                Пропустить фильтрацию
-              </button>
-              
-              <button 
-                class="btn btn-primary"
-                :disabled="filteredCount === 0"
-                @click="applyFilters"
-              >
-                Применить фильтры
-              </button>
-            </div>
-          </div>
+        <div class="mt-4 flex justify-end">
+          <button 
+            @click="addFilter"
+            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="!canAddFilter"
+          >
+            Add Filter
+          </button>
         </div>
       </div>
     </div>
   </template>
   
-  <script setup>
+  <script>
   import { ref, computed, watch } from 'vue';
-  import { useRouter } from 'vue-router';
-  import { useDataStore } from '../stores/dataStore';
-  import { useFilterStore } from '../stores/filterStore';
   
-  const router = useRouter();
-  const dataStore = useDataStore();
-  const filterStore = useFilterStore();
-  
-  // Состояние для создания фильтра
-  const selectedColumn = ref('');
-  const selectedOperator = ref('');
-  const filterValue = ref('');
-  
-  // Получаем доступные столбцы из данных
-  const availableColumns = computed(() => {
-    if (!dataStore.hasItems || !dataStore.rawData[0]) return [];
-    return Object.keys(dataStore.rawData[0]);
-  });
-  
-  // Проверка наличия активных фильтров
-  const hasActiveFilters = computed(() => {
-    return Object.keys(filterStore.filters).length > 0;
-  });
-  
-  // Количество отфильтрованных записей
-  const filteredCount = computed(() => {
-    return filterStore.filteredData.length;
-  });
-  
-  // Проверка возможности добавления фильтра
-  const canAddFilter = computed(() => {
-    return selectedColumn.value && selectedOperator.value && filterValue.value;
-  });
-  
-  // Сброс выбора оператора при изменении столбца
-  watch(selectedColumn, () => {
-    selectedOperator.value = '';
-  });
-  
-  // Определение доступных операторов в зависимости от типа данных
-  function getOperators(column) {
-    if (!column) return {};
-    
-    // Получаем тип данных в столбце
-    const columnType = getColumnType(column);
-    
-    const baseOperators = {
-      'eq': 'равно',
-      'gt': 'больше',
-      'lt': 'меньше',
-      'gte': 'больше или равно',
-      'lte': 'меньше или равно'
-    };
-    
-    // Для строк добавляем оператор contains
-    if (columnType === 'string') {
+  export default {
+    name: 'FilterSelector',
+    props: {
+      columns: {
+        type: Array,
+        required: true
+      },
+      data: {
+        type: Array,
+        required: true
+      },
+      savedFilters: {
+        type: Object,
+        default: () => ({})
+      }
+    },
+    emits: ['filters-changed'],
+    setup(props, { emit }) {
+      // Локальное состояние фильтров
+      const filters = ref({...props.savedFilters});
+      
+      // Форма для создания нового фильтра
+      const selectedColumn = ref('');
+      const selectedOperator = ref('');
+      const filterValue = ref('');
+      
+      // Определяем доступные операторы в зависимости от типа колонки
+      const availableOperators = computed(() => {
+        if (!selectedColumn.value) return [];
+        
+        const column = props.columns.find(col => col.name === selectedColumn.value);
+        if (!column) return [];
+        
+        const type = column.type;
+        
+        // Базовые операторы для числовых значений
+        const numericOperators = [
+          { value: 'eq', label: 'Equals (=)' },
+          { value: 'gt', label: 'Greater than (>)' },
+          { value: 'lt', label: 'Less than (<)' },
+          { value: 'gte', label: 'Greater than or equal (>=)' },
+          { value: 'lte', label: 'Less than or equal (<=)' }
+        ];
+        
+        // Операторы для строк
+        const stringOperators = [
+          { value: 'eq', label: 'Equals (=)' },
+          { value: 'contains', label: 'Contains' }
+        ];
+        
+        // Операторы для дат
+        const dateOperators = [
+          { value: 'eq', label: 'Equals (=)' },
+          { value: 'gt', label: 'After (>)' },
+          { value: 'lt', label: 'Before (<)' }
+        ];
+        
+        // Возвращаем операторы в зависимости от типа
+        if (type === 'float' || type === 'integer') {
+          return numericOperators;
+        } else if (type === 'datetime') {
+          return dateOperators;
+        } else {
+          return stringOperators;
+        }
+      });
+      
+      // Проверяем, можно ли добавить фильтр
+      const canAddFilter = computed(() => {
+        return selectedColumn.value && selectedOperator.value && filterValue.value;
+      });
+      
+      // Активные фильтры для отображения
+      const activeFilters = computed(() => {
+        return Object.entries(filters.value).map(([column, filter]) => ({
+          column,
+          operator: filter.operator,
+          value: filter.value
+        }));
+      });
+      
+      // Очищаем значения при изменении колонки
+      watch(selectedColumn, () => {
+        selectedOperator.value = '';
+        filterValue.value = '';
+      });
+      
+      // Добавление фильтра
+      function addFilter() {
+        if (!canAddFilter.value) return;
+        
+        // Добавляем новый фильтр
+        filters.value = {
+          ...filters.value,
+          [selectedColumn.value]: {
+            operator: selectedOperator.value,
+            value: filterValue.value
+          }
+        };
+        
+        // Оповещаем родительский компонент об изменении фильтров
+        emit('filters-changed', filters.value);
+        
+        // Сбрасываем форму
+        selectedColumn.value = '';
+        selectedOperator.value = '';
+        filterValue.value = '';
+      }
+      
+      // Удаление фильтра
+      function removeFilter(column) {
+        const updatedFilters = {...filters.value};
+        delete updatedFilters[column];
+        filters.value = updatedFilters;
+        
+        // Оповещаем родительский компонент об изменении фильтров
+        emit('filters-changed', filters.value);
+      }
+      
+      // Очистка всех фильтров
+      function clearAllFilters() {
+        filters.value = {};
+        
+        // Оповещаем родительский компонент об изменении фильтров
+        emit('filters-changed', filters.value);
+      }
+      
+      // Получение символа оператора для отображения
+      function getOperatorSymbol(operator) {
+        const symbols = {
+          'eq': '=',
+          'gt': '>',
+          'lt': '<',
+          'gte': '≥',
+          'lte': '≤',
+          'contains': 'contains'
+        };
+        return symbols[operator] || operator;
+      }
+      
       return {
-        'eq': 'равно',
-        'contains': 'содержит'
+        filters,
+        selectedColumn,
+        selectedOperator,
+        filterValue,
+        availableOperators,
+        canAddFilter,
+        activeFilters,
+        addFilter,
+        removeFilter,
+        clearAllFilters,
+        getOperatorSymbol
       };
     }
-    
-    return baseOperators;
-  }
-  
-  // Определение типа данных в столбце
-  function getColumnType(column) {
-    if (!dataStore.hasItems || !dataStore.rawData[0]) return 'string';
-    
-    const sampleValue = dataStore.rawData[0][column];
-    
-    if (typeof sampleValue === 'number') return 'number';
-    if (typeof sampleValue === 'boolean') return 'boolean';
-    return 'string';
-  }
-  
-  // Получение текстового представления оператора
-  function getOperatorText(operator) {
-    const operators = {
-      'eq': '=',
-      'gt': '>',
-      'lt': '<',
-      'gte': '>=',
-      'lte': '<=',
-      'contains': 'содержит'
-    };
-    
-    return operators[operator] || operator;
-  }
-  
-  // Добавление фильтра
-  function addFilter() {
-    if (!canAddFilter.value) return;
-    
-    // Преобразуем значение в соответствии с типом
-    let value = filterValue.value;
-    const columnType = getColumnType(selectedColumn.value);
-    
-    if (columnType === 'number') {
-      value = parseFloat(value);
-      if (isNaN(value)) {
-        alert('Пожалуйста, введите числовое значение');
-        return;
-      }
-    } else if (columnType === 'boolean') {
-      value = value.toLowerCase() === 'true';
-    }
-    
-    // Устанавливаем фильтр
-    filterStore.setFilter(selectedColumn.value, selectedOperator.value, value);
-    
-    // Сбрасываем поля
-    selectedColumn.value = '';
-    selectedOperator.value = '';
-    filterValue.value = '';
-  }
-  
-  // Удаление фильтра
-  function removeFilter(column) {
-    filterStore.removeFilter(column);
-  }
-  
-  // Очистка всех фильтров
-  function clearFilters() {
-    filterStore.clearFilters();
-  }
-  
-  // Пропуск фильтрации и переход к анализу
-  function skipFilters() {
-    router.push('/analysis');
-  }
-  
-  // Применение фильтров и переход к анализу
-  function applyFilters() {
-    if (filteredCount.value === 0) {
-      alert('Нет записей, удовлетворяющих фильтрам. Измените критерии фильтрации.');
-      return;
-    }
-    
-    router.push('/analysis');
-  }
+  };
   </script>

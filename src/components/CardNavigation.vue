@@ -11,7 +11,7 @@
         </button>
         
         <span class="flex items-center px-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg">
-          {{ currentIndex + 1 }} / {{ totalCards }}
+          {{ currentIndex + 1 }} / {{ totalFilteredItems }}
         </span>
         
         <button 
@@ -50,7 +50,7 @@
   </template>
   
   <script>
-  import { computed } from 'vue';
+  import { computed, watch, onMounted } from 'vue';
   import { useRouter } from 'vue-router';
   import { useDataStore } from '@/stores/dataStore';
   import { useResultsStore } from '@/stores/resultsStore';
@@ -76,14 +76,30 @@
       const dataStore = useDataStore();
       const resultsStore = useResultsStore();
       
-      const totalCards = computed(() => dataStore.filteredData.length);
+      // Использование вычисляемого свойства для получения количества элементов
+      const totalFilteredItems = computed(() => dataStore.filteredCount);
       
       const isFirstCard = computed(() => props.currentIndex === 0);
-      const isLastCard = computed(() => props.currentIndex === totalCards.value - 1);
+      const isLastCard = computed(() => props.currentIndex === totalFilteredItems.value - 1);
       
+      // Наблюдение за текущим элементом через вычисляемое свойство
       const currentWallet = computed(() => {
-        const currentCard = dataStore.filteredData[props.currentIndex];
-        return currentCard ? currentCard.Wallet : null;
+        const item = dataStore.filteredData[props.currentIndex];
+        return item ? item.Wallet : null;
+      });
+      
+      // Отладочная проверка при монтировании компонента
+      onMounted(() => {
+        console.log('CardNavigation mounted', {
+          filteredCount: dataStore.filteredCount,
+          currentIndex: props.currentIndex,
+          totalFilteredItems: totalFilteredItems.value
+        });
+      });
+      
+      // Наблюдение за изменениями в отфильтрованных данных
+      watch(() => dataStore.filteredCount, (newCount) => {
+        console.log('CardNavigation: filteredCount changed to', newCount);
       });
       
       const handlePrevious = () => {
@@ -123,7 +139,7 @@
       };
       
       return {
-        totalCards,
+        totalFilteredItems,
         isFirstCard,
         isLastCard,
         currentWallet,
