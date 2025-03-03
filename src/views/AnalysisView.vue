@@ -56,6 +56,7 @@ import { useResultsStore } from '@/stores/resultsStore';
 import CardViewer from '@/components/CardViewer.vue';
 import CardNavigation from '@/components/CardNavigation.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import { useKnownWalletsStore } from '@/stores/knownWalletsStore';
 
 export default {
   name: 'AnalysisView',

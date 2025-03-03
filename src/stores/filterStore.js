@@ -1,10 +1,14 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useDataStore } from './dataStore';
+import { useKnownWalletsStore } from './knownWalletsStore';
 
 export const useFilterStore = defineStore('filter', () => {
   // Структура для хранения фильтров
   const filters = ref({});
+  
+  // Флаг для исключения известных кошельков
+  const excludeKnownWallets = ref(true);
   
   // Инициализация фильтров из localStorage или переданных фильтров
   function initFilters(savedFilters = null) {
@@ -16,6 +20,12 @@ export const useFilterStore = defineStore('filter', () => {
         if (localStorageFilters) {
           filters.value = JSON.parse(localStorageFilters);
         }
+      }
+      
+      // Загружаем настройку исключения известных кошельков
+      const savedExcludeKnownWallets = localStorage.getItem('excludeKnownWallets');
+      if (savedExcludeKnownWallets !== null) {
+        excludeKnownWallets.value = JSON.parse(savedExcludeKnownWallets);
       }
       
       // После инициализации фильтров, обновляем данные
@@ -31,6 +41,20 @@ export const useFilterStore = defineStore('filter', () => {
     saveFilters();
     
     // После обновления фильтров, обновляем данные
+    applyFiltersToData();
+  }
+  
+  // Функция для переключения исключения известных кошельков
+  function toggleExcludeKnownWallets() {
+    excludeKnownWallets.value = !excludeKnownWallets.value;
+    localStorage.setItem('excludeKnownWallets', JSON.stringify(excludeKnownWallets.value));
+    applyFiltersToData();
+  }
+  
+  // Установка значения для исключения известных кошельков
+  function setExcludeKnownWallets(value) {
+    excludeKnownWallets.value = value;
+    localStorage.setItem('excludeKnownWallets', JSON.stringify(excludeKnownWallets.value));
     applyFiltersToData();
   }
   
@@ -102,15 +126,35 @@ export const useFilterStore = defineStore('filter', () => {
   // Применение фильтров к данным
   function applyFiltersToData() {
     const dataStore = useDataStore();
+    const knownWalletsStore = useKnownWalletsStore();
     
-    // Если нет фильтров, просто используем все исходные данные
+    // Если база не готова, пытаемся инициализировать
+    if (!knownWalletsStore.dbReady) {
+      knownWalletsStore.initDatabase().catch(error => {
+        console.error('Ошибка при инициализации базы известных кошельков:', error);
+      });
+    }
+    
+    // Получаем исходные данные для фильтрации
+    let dataToFilter = [...dataStore.rawData];
+    
+    // Сначала исключаем известные кошельки, если это необходимо
+    if (excludeKnownWallets.value) {
+      const startCount = dataToFilter.length;
+      dataToFilter = dataToFilter.filter(item => {
+        return !knownWalletsStore.isKnownWallet(item.wallet);
+      });
+      console.log(`Исключено ${startCount - dataToFilter.length} известных кошельков`);
+    }
+    
+    // Если нет других фильтров, используем текущие данные
     if (Object.keys(filters.value).length === 0) {
-      dataStore.setFilteredData([...dataStore.rawData]);
+      dataStore.setFilteredData(dataToFilter);
       return;
     }
     
-    // Иначе фильтруем данные
-    const filteredResult = dataStore.rawData.filter(item => {
+    // Иначе применяем остальные фильтры
+    const filteredResult = dataToFilter.filter(item => {
       // Проверяем каждый фильтр
       for (const [column, filter] of Object.entries(filters.value)) {
         const itemValue = item[column];
@@ -156,8 +200,11 @@ export const useFilterStore = defineStore('filter', () => {
   
   return {
     filters,
+    excludeKnownWallets,
     initFilters,
     updateFilters,
+    toggleExcludeKnownWallets,
+    setExcludeKnownWallets,
     setFilter,
     removeFilter,
     clearFilters,
